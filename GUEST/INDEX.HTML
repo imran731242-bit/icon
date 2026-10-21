@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Repo Manager</title>
+<style>
+  /* ================================================================== */
+  /*  Glowing Pink Theme Tokens                                         */
+  /* ================================================================== */
+  :root{
+    --bg:#0a050d; 
+    --card:#0a050d; 
+    --border:#3a2045; 
+    --text:#fceef4;
+    --muted:#b89cba; 
+    --accent:#ff2a8a;       /* Glowing Pink */
+    --accent-hover:#ff6bb5; 
+    --green:#3fb950;        /* Kept for success states */
+    --red:#f85149;          /* Kept for error states */
+    --input:#0f0814;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh; overflow-x:hidden;
+  }
+
+  /* Animated ambient pink/magenta orbs in the background */
+  body::before{
+    content:"";
+    position:fixed; inset:-50%; z-index:-2; pointer-events:none;
+    background:
+      radial-gradient(circle at 15% 25%, rgba(255, 42, 138, .15) 0%, transparent 40%),
+      radial-gradient(circle at 85% 75%, rgba(217, 70, 239, .12) 0%, transparent 40%),
+      radial-gradient(circle at 55% 10%, rgba(255, 107, 181, .10) 0%, transparent 35%);
+    animation: floatOrbs 26s ease-in-out infinite;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(180deg, transparent 0%, rgba(10,5,13,.6) 100%);
+  }
+  @keyframes floatOrbs{
+    0%,100%{ transform: translate(0,0) scale(1); }
+    33%   { transform: translate(40px,-30px) scale(1.06); }
+    66%   { transform: translate(-30px,40px) scale(.96); }
+  }
+
+  /* ================================================================== */
+  /*  Keyframes                                                         */
+  /* ================================================================== */
+  @keyframes fadeInUp{
+    from{ opacity:0; transform:translateY(22px) }
+    to  { opacity:1; transform:translateY(0) }
+  }
+  @keyframes fadeIn{
+    from{ opacity:0 } to{ opacity:1 }
+  }
+  @keyframes slideInLeft{
+    from{ opacity:0; transform:translateX(-22px) }
+    to  { opacity:1; transform:translateX(0) }
+  }
+  @keyframes slideInRight{
+    from{ opacity:0; transform:translateX(22px) }
+    to  { opacity:1; transform:translateX(0) }
+  }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  @keyframes pulseSoft{
+    0%,100%{ opacity:1; transform:scale(1) }
+    50%    { opacity:.65; transform:scale(.96) }
+  }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0) }
+    20%    { transform:translateX(-6px) }
+    40%    { transform:translateX(6px) }
+    60%    { transform:translateX(-4px) }
+    80%    { transform:translateX(4px) }
+  }
+  @keyframes gradientShift{
+    0%  { background-position: 0% 50% }
+    50% { background-position: 100% 50% }
+    100%{ background-position: 0% 50% }
+  }
+  @keyframes ripple{
+    to{ transform:scale(4); opacity:0 }
+  }
+  @keyframes skeleton{
+    0%  { background-position: 200% 0 }
+    100%{ background-position: -200% 0 }
+  }
+  @keyframes successFlash{
+    0%  { box-shadow: 0 0 0 0 rgba(63,185,80,.65) }
+    100%{ box-shadow: 0 0 0 24px rgba(63,185,80,0) }
+  }
+  @keyframes errorFlash{
+    0%  { box-shadow: 0 0 0 0 rgba(248,81,73,.65) }
+    100%{ box-shadow: 0 0 0 24px rgba(248,81,73,0) }
+  }
+  @keyframes pop{
+    0%  { transform:scale(.7); opacity:0 }
+    70% { transform:scale(1.05) }
+    100%{ transform:scale(1); opacity:1 }
+  }
+
+  /* ================================================================== */
+  /*  Header                                                            */
+  /* ================================================================== */
+  header{
+    padding:40px 40px 20px; 
+    position:relative;
+    animation: fadeIn .5s ease;
+    width: 100%;
+    background: transparent;
+    border: none;
+  }
+  header h1{margin:0;font-size:24px;display:flex;align-items:center;gap:10px}
+  header h1 .emoji{
+    animation: pulseSoft 2.4s ease-in-out infinite;display:inline-block;
+    filter: drop-shadow(0 0 8px var(--accent));
+  }
+  header h1 .gradient-text{
+    background:linear-gradient(90deg, #ff2a8a, #d946ef, #ff6bb5, #ff2a8a);
+    background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+    animation: gradientShift 6s ease infinite;
+    text-shadow: 0 0 20px rgba(255, 42, 138, 0.3);
+  }
+  header p{margin:8px 0 0;color:var(--muted);font-size:14px}
+
+  /* ================================================================== */
+  /*  Layout (Full Screen)                                              */
+  /* ================================================================== */
+  main{
+    width: 100%; max-width: 100%;
+    padding: 0 40px 40px; position: relative;
+  }
+  
+  .card{
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 20px 0;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeInUp .5s ease backwards;
+  }
+  .card:last-child { border-bottom: none; }
+  
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row > *{flex:1 1 180px;min-width:0}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;transition:color .2s}
+  .field:focus-within label{color:var(--accent)}
+
+  input[type=text],input[type=password],textarea{
+    width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--border);
+    background:var(--input);color:var(--text);font-family:inherit;font-size:14px;
+    transition: border-color .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  input[type=text]:hover,input[type=password]:hover,textarea:hover{ border-color:#5a306b }
+  input[type=text]:focus,input[type=password]:focus,textarea:focus{
+    outline:none; border-color:var(--accent); background:#150c1c;
+    box-shadow: 0 0 0 3px rgba(255, 42, 138, 0.2), 0 0 15px rgba(255, 42, 138, 0.1);
+    animation: inputGlow .4s ease;
+  }
+  @keyframes inputGlow{
+    0%{ box-shadow: 0 0 0 0 rgba(255, 42, 138, 0.5) }
+    100%{ box-shadow: 0 0 0 3px rgba(255, 42, 138, 0.2), 0 0 15px rgba(255, 42, 138, 0.1) }
+  }
+  textarea{resize:vertical;min-height:300px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.55}
+  .field{margin-bottom:16px}
+
+  /* ================================================================== */
+  /*  Buttons                                                           */
+  /* ================================================================== */
+  button{
+    position:relative; overflow:hidden;
+    padding:11px 20px;border-radius:8px;border:1px solid var(--border);
+    background:#160c1c;color:var(--text);font-size:14px;font-weight:600;
+    cursor:pointer; font-family:inherit;
+    transition: background .2s ease, transform .12s ease,
+                border-color .2s ease, box-shadow .25s ease, color .2s ease;
+  }
+  button:hover:not(:disabled){ background:#22112b; transform: translateY(-1px) }
+  button:active:not(:disabled){ transform: translateY(1px) scale(.98) }
+  button:disabled{opacity:.55;cursor:not-allowed}
+
+  button.primary{
+    background:linear-gradient(135deg, #ff2a8a, #d946ef);
+    border-color:transparent; color:#fff;
+    box-shadow: 0 3px 15px rgba(255, 42, 138, 0.4);
+  }
+  button.primary:hover:not(:disabled){
+    background:linear-gradient(135deg, #ff6bb5, #ff2a8a);
+    box-shadow: 0 6px 25px rgba(255, 42, 138, 0.6);
+  }
+  button.danger{color:var(--red)}
+  button.danger:hover:not(:disabled){ border-color: rgba(248,81,73,.6); background: rgba(248,81,73,.08) }
+
+  /* Ripple element (injected by JS) */
+  .ripple{
+    position:absolute; width:20px; height:20px; margin:-10px 0 0 -10px;
+    background:rgba(255,255,255,.5); border-radius:50%;
+    transform:scale(0); animation: ripple .6s ease-out;
+    pointer-events:none;
+  }
+
+  /* Spinner for disabled primary buttons */
+  button.primary:disabled{
+    color:transparent !important;
+    position:relative;
+  }
+  button.primary:disabled::after{
+    content:"";
+    position:absolute; top:50%; left:50%;
+    width:16px; height:16px; margin:-8px 0 0 -8px;
+    border:2px solid rgba(255,255,255,.9);
+    border-top-color:transparent;
+    border-radius:50%;
+    animation: spin .65s linear infinite;
+  }
+
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+
+  /* ================================================================== */
+  /*  Tabs                                                              */
+  /* ================================================================== */
+  .tabs{
+    display:flex; gap:8px; margin-bottom:0; flex-wrap:wrap;
+    background:transparent; padding:20px 0; border-radius:0;
+    border-bottom:1px solid var(--border);
+    animation: fadeIn .5s ease backwards;
+    width: 100%;
+  }
+  .tabs button{
+    border-radius:8px; padding:10px 22px;
+    background:#140b1a; border:1px solid var(--border);
+    transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .tabs button:hover:not(.active){ background:#1f1029; transform:none }
+  .tabs button.active{
+    background:linear-gradient(135deg, #ff2a8a, #d946ef);
+    border-color:transparent; color:#fff;
+    box-shadow: 0 4px 20px rgba(255, 42, 138, 0.5);
+    transform: scale(1.04);
+  }
+
+  /* ================================================================== */
+  /*  Panels                                                            */
+  /* ================================================================== */
+  .panel{display:none}
+  .panel.active{ display:block; animation: fadeInUp .4s ease }
+
+  /* ================================================================== */
+  /*  Misc                                                              */
+  /* ================================================================== */
+  .hint{font-size:13px;color:var(--muted);margin-top:8px}
+  .badge{
+    display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;
+    background:#140b1a;border:1px solid var(--border);color:var(--muted);
+    transition: all .25s ease;
+  }
+  .badge.edit{background:rgba(63,185,80,.15);border-color:rgba(63,185,80,.45);color:var(--green)}
+  .badge.new{background:rgba(255, 42, 138, .15);border-color:rgba(255, 42, 138, .45);color:var(--accent)}
+  #whoami{font-size:14px;color:var(--muted);margin-left:auto;animation: pop .35s ease}
+  #whoami strong{color:var(--accent); text-shadow: 0 0 10px rgba(255, 42, 138, 0.4);}
+
+  /* ================================================================== */
+  /*  Repo grid (Expanded for full screen)                              */
+  /* ================================================================== */
+  .repo-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;
+    max-height:calc(100vh - 380px); min-height:200px; overflow-y:auto; padding:4px;
+    scrollbar-width:thin; scrollbar-color:#3a2045 transparent;
+    margin-top: 15px;
+  }
+  .repo-grid::-webkit-scrollbar{ width:8px }
+  .repo-grid::-webkit-scrollbar-thumb{ background:#3a2045; border-radius:4px }
+
+  .repo-card{
+    position:relative; overflow:hidden;
+    padding:18px;border:1px solid var(--border);border-radius:10px;cursor:pointer;
+    background:#0c0610;
+    transition: border-color .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1),
+                box-shadow .3s ease, background .3s ease;
+    animation: fadeInUp .45s ease backwards;
+  }
+  .repo-card::before{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(135deg, rgba(255, 42, 138, .15), rgba(217, 70, 239, .1));
+    opacity:0; transition: opacity .35s ease;
+    pointer-events:none;
+  }
+  .repo-card:hover{
+    border-color:var(--accent); background:#120818;
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 30px rgba(255, 42, 138, 0.25);
+  }
+  .repo-card:hover::before{ opacity:1 }
+  .repo-card:active{ transform: translateY(-1px) scale(.99) }
+  .repo-card .name{font-weight:600;font-size:15px;word-break:break-all;flex:1;position:relative}
+  .repo-card .desc{
+    font-size:13px;color:var(--muted);margin-top:8px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;
+  }
+  .repo-card .meta{
+    font-size:12px;color:var(--muted);margin-top:12px;
+    font-family:ui-monospace,monospace;position:relative;
+    display:flex;align-items:center;gap:6px;
+  }
+  .repo-card .meta::before{
+    content:"⎇"; color:var(--accent); font-size:14px;
+  }
+
+  /* Skeleton loader for repo grid */
+  .skel-card{
+    height:106px;border-radius:10px;
+    background:linear-gradient(90deg, #140b1a 25%, #22112b 50%, #140b1a 75%);
+    background-size:200% 100%;
+    animation: skeleton 1.4s ease-in-out infinite;
+  }
+
+  /* ================================================================== */
+  /*  File list (BIGGER BOX, Drag & Drop Zone)                          */
+  /* ================================================================== */
+  .file-list{
+    border:2px dashed var(--border);border-radius:12px;
+    height: calc(100vh - 320px);
+    min-height: 400px; 
+    overflow-y:auto; background:#0c0610;
+    scrollbar-width:thin; scrollbar-color:#3a2045 transparent;
+    transition: all 0.2s ease;
+  }
+  .file-list.drag-over {
+    border-color: var(--accent);
+    background: rgba(255, 42, 138, 0.05);
+    box-shadow: inset 0 0 20px rgba(255, 42, 138, 0.1);
+  }
+  
+  .file-list::-webkit-scrollbar{ width:8px }
+  .file-list::-webkit-scrollbar-thumb{ background:#3a2045; border-radius:4px }
+
+  .file-item{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 18px;cursor:pointer;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
+    transition: background .2s ease, padding-left .2s ease, color .2s ease;
+    animation: slideInLeft .35s ease backwards;
+    position:relative;
+  }
+  .file-item::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:0;
+    background:var(--accent); transition: width .25s ease;
+  }
+  .file-item:hover{ background:#160c1c; padding-left:24px }
+  .file-item:hover::before{ width:4px }
+  .file-item:last-child{border-bottom:none}
+  
+  .file-item .icon{
+    width:20px;text-align:center;font-size:16px;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+    display:inline-block;
+  }
+  .file-item:hover .icon{ transform: scale(1.2) rotate(-4deg) }
+  .file-item .name{flex:1;word-break:break-all}
+  .file-item .size{
+    margin-left:auto;color:var(--muted);
+    font-size:12px;
+    font-family:ui-monospace,monospace;
+  }
+  .file-item.msg{
+    cursor:default;color:var(--muted);justify-content:center;
+    animation: pulseSoft 1.6s ease-in-out infinite;
+  }
+  .file-item.msg::before{ display:none }
+  .file-item.msg:hover{ background:#0c0610; padding-left:18px }
+
+  /* ================================================================== */
+  /*  Breadcrumb                                                        */
+  /* ================================================================== */
+  .breadcrumb{
+    font-size:13px;color:var(--muted);margin-bottom:12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all;
+    animation: slideInLeft .35s ease backwards;
+  }
+  .breadcrumb a{
+    color:var(--accent);cursor:pointer;text-decoration:none;
+    transition: color .2s, text-shadow .2s;
+  }
+  .breadcrumb a:hover{ text-shadow: 0 0 12px rgba(255, 42, 138, 0.6) }
+
+  /* ================================================================== */
+  /*  Editor card success/error flash                                   */
+  /* ================================================================== */
+  #editorCard.success{ animation: successFlash .9s ease }
+  #editorCard.error  { animation: errorFlash .9s ease, shake .5s ease }
+  #editorCard.show   { animation: fadeInUp .4s ease backwards }
+
+  #editingPath{
+    font-size:13px;background:#22112b;padding:4px 10px;border-radius:6px;
+    font-family:ui-monospace,monospace; color:var(--accent);
+    border: 1px solid var(--border);
+  }
+
+  /* ================================================================== */
+  /*  Toasts                                                            */
+  /* ================================================================== */
+  #toasts{
+    position:fixed; top:20px; right:20px; z-index:9999;
+    display:flex; flex-direction:column; gap:10px; pointer-events:none;
+    max-width:320px;
+  }
+  .toast{
+    padding:14px 18px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    animation: slideInRight .35s ease, fadeOut .35s ease 2.8s forwards;
+    pointer-events:auto;
+    display:flex;align-items:center;gap:10px;
+  }
+  .toast.ok { background: linear-gradient(135deg, #ff2a8a, #d946ef); box-shadow: 0 8px 24px rgba(255, 42, 138, 0.3); }
+  .toast.err{ background: linear-gradient(135deg,#da3633,#f85149) }
+  .toast.info{background: linear-gradient(135deg, #ff6bb5, #ff2a8a); }
+  @keyframes fadeOut{ to{ opacity:0; transform:translateX(30px) } }
+
+  /* ================================================================== */
+  /*  Misc                                                              */
+  /* ================================================================== */
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);cursor:pointer}
+  .check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  a{color:var(--accent)}
+  code{font-family:ui-monospace,monospace}
+
+  /* Upload Menu Dropdown */
+  .upload-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .upload-menu {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 8px;
+    background: #160c1c;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 100;
+    min-width: 170px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    animation: fadeInUp .2s ease;
+  }
+  .upload-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .upload-menu button:hover {
+    background: #22112b;
+    color: var(--accent);
+  }
+
+  /* Responsive padding for smaller screens */
+  @media (max-width: 768px) {
+    header { padding: 30px 20px 10px; }
+    main { padding: 0 20px 20px; }
+    .file-list { height: 60vh; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toasts"></div>
+
+<header>
+  <h1><span class="emoji">🐙</span><span class="gradient-text">GitHub Repo Manager</span></h1>
+  <p>Create repositories · add files · edit files — all with your personal access token.</p>
+</header>
+
+<main>
+
+  <!-- ============ AUTH ============ -->
+  <section class="card" id="authSection" style="animation-delay:.05s">
+    <h2>1. Authentication <span id="whoami"></span></h2>
+    <div class="field">
+      <label for="token">GitHub Personal Access Token</label>
+      <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="hint">Needs <strong>Contents: Read &amp; Write</strong> + <strong>Administration: Read &amp; Write</strong> (fine-grained), or the <code>repo</code> scope (classic).</div>
+    </div>
+    <div class="btn-row">
+      <button class="primary" id="btnVerify">🔑 Verify &amp; Load Repos</button>
+      <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
+      <button id="btnForget" class="danger">Forget token</button>
+    </div>
+  </section>
+
+  <!-- ============ TABS ============ -->
+  <div class="tabs" id="tabsContainer" style="animation-delay:.1s">
+    <button class="active" data-tab="create">➕ Create Repository</button>
+    <button data-tab="file">📄 Edit / Add Files</button>
+  </div>
+
+  <!-- ============ CREATE REPO ============ -->
+  <section class="panel active" id="panel-create">
+    <div class="card">
+      <h2>Create a new repository</h2>
+      <div class="row">
+        <div class="field" style="flex:2">
+          <label for="repoName">Repository name *</label>
+          <input type="text" id="repoName" placeholder="my-awesome-project">
+        </div>
+        <div class="field" style="flex:3">
+          <label for="repoDesc">Description</label>
+          <input type="text" id="repoDesc" placeholder="Optional short description">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="repoPrivate"> Private repository</label>
+      <div class="btn-row">
+        <button class="primary" id="btnCreateRepo">🚀 Create Repository</button>
+      </div>
+      <div class="hint">The repo is created with an initial README so it has a default branch you can commit to right away.</div>
+    </div>
+  </section>
+
+  <!-- ============ EDIT / FILE ============ -->
+  <section class="panel" id="panel-file">
+
+    <!-- View 1: repository picker -->
+    <div id="repoListView">
+      <div class="card">
+        <h2>📁 Your repositories</h2>
+        <div class="field">
+          <input type="text" id="repoFilter" placeholder="🔍 Filter repositories by name…">
+        </div>
+        <div class="repo-grid" id="repoGrid">
+          <div class="hint">Sign in above to load your repositories.</div>
+        </div>
+        <div class="hint" style="margin-top:15px">Click any repository to browse its files and start editing.</div>
+      </div>
+    </div>
+
+    <!-- View 2: file browser + editor (Focus Mode) -->
+    <div id="fileView" style="display:none">
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button id="btnBackToRepos">← All repositories</button>
+          <h2 style="margin:0; font-size:18px;">📁 <span id="repoTitle"></span></h2>
+          <span class="badge" id="repoBranchBadge"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Browse files</h2>
+        <div class="breadcrumb" id="breadcrumb"></div>
+        
+        <!-- The bigger box: Drag & Drop enabled -->
+        <div class="file-list" id="fileList">
+          <div class="file-item msg">Loading…</div>
+        </div>
+        
+        <div class="btn-row">
+          <input type="text" id="newFilePath" placeholder="new file path e.g. README.md" style="flex:1;min-width:200px">
+          
+          <button id="btnStartNewFile">✚ Create new file</button>
+          
+          <!-- Hidden inputs -->
+          <input type="file" id="fileUploadInput" multiple style="display:none">
+          <input type="file" id="folderUploadInput" webkitdirectory directory multiple style="display:none">
+          
+          <!-- Unified Upload Button with Dropdown Menu -->
+          <div class="upload-dropdown">
+            <button id="btnUpload">📤 Upload</button>
+            <div class="upload-menu" id="uploadMenu">
+              <button id="menuUploadFiles">📄 Upload Files</button>
+              <button id="menuUploadFolder">📁 Upload Folder</button>
+            </div>
+          </div>
+
+        </div>
+        <div class="hint">Click a folder to open it, or a file to edit it. You can also drag & drop files or folders directly into the list.</div>
+      </div>
+
+      <div class="card" id="editorCard" style="display:none">
+        <h2>
+          ✏️ Editing:
+          <code id="editingPath"></code>
+          <span id="fileStatus" class="badge new">New file</span>
+        </h2>
+        <div class="field">
+          <textarea id="content" placeholder="// your file content here"></textarea>
+        </div>
+        <div class="field">
+          <label for="commitMsg">Commit message</label>
+          <input type="text" id="commitMsg" value="Update file via GitHub Repo Manager">
+        </div>
+        <div class="btn-row">
+          <button class="primary" id="btnCommit">💾 Commit to GitHub</button>
+          <button id="btnCancelEdit">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ================================================================== */
+/*  Helpers                                                           */
+/* ================================================================== */
+const $ = id => document.getElementById(id);
+
+const state = {
+  user: null,
+  allRepos: [],
+  currentRepo: null,
+  currentPath: '',
+  editingFile: null
+};
+
+function log(msg, type = 'info') { /* Hidden */ }
+
+function toast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+/* ---------- Utilities ---------- */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function formatSize(n) {
+  if (!n && n !== 0) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function b64EncodeUnicode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64DecodeUnicode(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ''));
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+const encPath = p => p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+function contentsUrl(owner, repo, path, branch) {
+  let url = `/repos/${owner}/${repo}/contents`;
+  if (path) url += '/' + encPath(path);
+  if (branch) url += `?ref=${encodeURIComponent(branch)}`;
+  return url;
+}
+function need(v, name) {
+  if (!v || !v.trim()) throw new Error(`"${name}" is required.`);
+  return v.trim();
+}
+function getToken() {
+  const t = $('token').value.trim();
+  if (!t) throw new Error('Enter your GitHub token first.');
+  return t;
+}
+function switchTab(name) {
+  const btn = document.querySelector(`.tabs button[data-tab="${name}"]`);
+  if (btn) btn.click();
+}
+
+/* ================================================================== */
+/*  GitHub API wrapper                                                */
+/* ================================================================== */
+async function api(path, { method = 'GET', body } = {}) {
+  const res = await fetch('https://api.github.com' + path, {
+    method,
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': 'Bearer ' + getToken(),
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch { data = text; } }
+  if (!res.ok) {
+    const err = new Error((data && data.message) || `${res.status} ${res.statusText}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+/* ================================================================== */
+/*  Ripple effect on every button (delegated)                         */
+/* ================================================================== */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || btn.disabled) return;
+  const rect = btn.getBoundingClientRect();
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  r.style.left = (e.clientX - rect.left) + 'px';
+  r.style.top  = (e.clientY - rect.top)  + 'px';
+  btn.appendChild(r);
+  setTimeout(() => r.remove(), 650);
+});
+
+/* ================================================================== */
+/*  Token persistence                                                 */
+/* ================================================================== */
+(function initToken() {
+  const saved = localStorage.getItem('gh_token');
+  if (saved) { $('token').value = saved; $('remember').checked = true; }
+})();
+
+$('remember').addEventListener('change', e => {
+  if (e.target.checked) localStorage.setItem('gh_token', $('token').value.trim());
+  else localStorage.removeItem('gh_token');
+});
+
+$('btnForget').addEventListener('click', () => {
+  localStorage.removeItem('gh_token');
+  $('token').value = '';
+  $('remember').checked = false;
+  $('whoami').innerHTML = '';
+  state.allRepos = [];
+  $('repoGrid').innerHTML = '<div class="hint">Sign in above to load your repositories.</div>';
+  toast('Token forgotten', 'info');
+});
+
+/* ================================================================== */
+/*  Verify token → load repos                                         */
+/* ================================================================== */
+$('btnVerify').addEventListener('click', async () => {
+  const btn = $('btnVerify');
+  btn.disabled = true;
+  try {
+    const u = await api('/user');
+    state.user = u;
+    $('whoami').innerHTML = `Signed in as <strong>${escapeHtml(u.login)}</strong>`;
+    toast(`Welcome, ${u.login}!`, 'ok');
+
+    if ($('remember').checked) localStorage.setItem('gh_token', $('token').value.trim());
+
+    await loadRepos();
+  } catch (e) {
+    $('whoami').innerHTML = '';
+    toast('Auth failed: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function loadRepos() {
+  $('repoGrid').innerHTML = Array.from({length: 8})
+    .map(() => '<div class="skel-card"></div>').join('');
+
+  try {
+    const repos = await api('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator');
+    state.allRepos = repos;
+    renderRepoList();
+  } catch (e) {
+    $('repoGrid').innerHTML =
+      `<div class="hint" style="grid-column:1/-1">Failed to load repositories: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+/* ================================================================== */
+/*  Repo list rendering                                               */
+/* ================================================================== */
+function renderRepoList() {
+  const filter = ($('repoFilter').value || '').toLowerCase().trim();
+  const grid = $('repoGrid');
+  grid.innerHTML = '';
+
+  if (!state.allRepos.length) {
+    grid.innerHTML = '<div class="hint" style="grid-column:1/-1">No repositories found. Sign in above first.</div>';
+    return;
+  }
+
+  const filtered = state.allRepos.filter(r =>
+    r.full_name.toLowerCase().includes(filter) ||
+    (r.description || '').toLowerCase().includes(filter)
+  );
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="hint" style="grid-column:1/-1">No repositories match your filter.</div>';
+    return;
+  }
+
+  filtered.forEach((r, i) => {
+    const card = document.createElement('div');
+    card.className = 'repo-card';
+    card.style.animationDelay = (i * 30) + 'ms';
+
+    const badge = r.private
+      ? '<span class="badge">🔒 private</span>'
+      : '<span class="badge">🌐 public</span>';
+
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;position:relative">
+        <div class="name">${escapeHtml(r.full_name)}</div>
+        ${badge}
+      </div>
+      <div class="desc" title="${escapeHtml(r.description || '')}">${escapeHtml(r.description || 'No description')}</div>
+      <div class="meta">${escapeHtml(r.default_branch)}</div>
+    `;
+    card.addEventListener('click', () => openRepo(r));
+    grid.appendChild(card);
+  });
+}
+
+$('repoFilter').addEventListener('input', renderRepoList);
+
+/* ================================================================== */
+/*  Open a repo → browse files                                        */
+/* ================================================================== */
+async function openRepo(repo) {
+  state.currentRepo = {
+    owner: repo.owner.login,
+    name: repo.name,
+    fullName: repo.full_name,
+    branch: repo.default_branch,
+    private: repo.private
+  };
+  state.currentPath = '';
+  state.editingFile = null;
+
+  $('authSection').style.display = 'none';
+  $('tabsContainer').style.display = 'none';
+  $('repoListView').style.display = 'none';
+
+  $('repoTitle').textContent = state.currentRepo.fullName;
+  $('repoBranchBadge').textContent = 'branch: ' + state.currentRepo.branch;
+  
+  const fv = $('fileView');
+  fv.style.display = '';
+  fv.style.animation = 'none';
+  void fv.offsetWidth;
+  fv.style.animation = 'fadeInUp .4s ease';
+
+  $('editorCard').style.display = 'none';
+  $('newFilePath').value = '';
+
+  await loadDir('');
+}
+
+/* ================================================================== */
+/*  Return to main menu                                               */
+/* ================================================================== */
+$('btnBackToRepos').addEventListener('click', () => {
+  const fv = $('fileView');
+  fv.style.animation = 'fadeIn .25s ease reverse';
+  
+  setTimeout(() => {
+    fv.style.display = 'none';
+    fv.style.animation = '';
+    
+    $('authSection').style.display = '';
+    $('tabsContainer').style.display = '';
+    $('repoListView').style.display = '';
+    
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    
+    const fileTab = document.querySelector('.tabs button[data-tab="file"]');
+    if (fileTab) fileTab.classList.add('active');
+    $('panel-file').classList.add('active');
+    
+    renderRepoList();
+  }, 200);
+
+  state.currentRepo = null;
+  state.currentPath = '';
+  state.editingFile = null;
+});
+
+/* ================================================================== */
+/*  Directory loading                                                 */
+/* ================================================================== */
+async function loadDir(path) {
+  state.currentPath = path;
+  renderBreadcrumb();
+
+  $('newFilePath').placeholder = path
+    ? `new file inside ${path}/ — e.g. ${path}/file.txt`
+    : 'new file path e.g. README.md';
+
+  const list = $('fileList');
+  list.innerHTML = '<div class="file-item msg">Loading…</div>';
+
+  try {
+    const { owner, name, branch } = state.currentRepo;
+    const data = await api(contentsUrl(owner, name, path, branch));
+    const items = Array.isArray(data) ? data : [data];
+
+    if (!items.length) {
+      list.innerHTML = '<div class="file-item msg">Empty directory — click Upload or drag files here.</div>';
+      return;
+    }
+
+    items.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    list.innerHTML = '';
+    items.forEach((item, i) => {
+      const el = document.createElement('div');
+      el.className = 'file-item';
+      el.style.animationDelay = (i * 25) + 'ms';
+
+      let icon = '📄';
+      if (item.type === 'dir') icon = '📁';
+      else if (item.type === 'symlink') icon = '🔗';
+      else if (item.type === 'submodule') icon = '📦';
+
+      const size = (item.type === 'file') ? formatSize(item.size) : '';
+
+      el.innerHTML =
+        `<span class="icon">${icon}</span>` +
+        `<span class="name">${escapeHtml(item.name)}</span>` +
+        `<span class="size">${size}</span>`;
+
+      if (item.type === 'dir') {
+        el.addEventListener('click', () => loadDir(item.path));
+      } else {
+        el.addEventListener('click', () => openFile(item.path));
+      }
+      list.appendChild(el);
+    });
+  } catch (e) {
+    if (e.status === 404) {
+      list.innerHTML = '<div class="file-item msg">Empty repository — type a path below to create the first file.</div>';
+    } else {
+      list.innerHTML = `<div class="file-item msg">Failed to load: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+}
+
+/* ================================================================== */
+/*  Breadcrumb                                                        */
+/* ================================================================== */
+function renderBreadcrumb() {
+  const bc = $('breadcrumb');
+  bc.innerHTML = '';
+  if (!state.currentRepo) return;
+
+  const root = document.createElement('a');
+  root.textContent = state.currentRepo.name;
+  root.addEventListener('click', () => loadDir(''));
+  bc.appendChild(root);
+
+  const parts = state.currentPath.split('/').filter(Boolean);
+  let acc = '';
+  parts.forEach(p => {
+    acc += (acc ? '/' : '') + p;
+    bc.appendChild(document.createTextNode(' / '));
+    const a = document.createElement('a');
+    a.textContent = p;
+    const target = acc;
+    a.addEventListener('click', () => loadDir(target));
+    bc.appendChild(a);
+  });
+
+  bc.style.animation = 'none';
+  void bc.offsetWidth;
+  bc.style.animation = 'slideInLeft .35s ease';
+}
+
+/* ================================================================== */
+/*  Open a file in the editor                                         */
+/* ================================================================== */
+async function openFile(path) {
+  try {
+    const { owner, name, branch } = state.currentRepo;
+    const data = await api(contentsUrl(owner, name, path, branch));
+
+    if (Array.isArray(data)) throw new Error('That path is a directory.');
+    if (data.encoding !== 'base64' || typeof data.content !== 'string') {
+      throw new Error('File is too large to load through this API (over ~1 MB).');
+    }
+
+    state.editingFile = { path, sha: data.sha };
+    showEditor(path, b64DecodeUnicode(data.content), data.sha, false);
+    toast('Loaded ' + path.split('/').pop(), 'ok');
+  } catch (e) {
+    toast('Failed to open file', 'err');
+  }
+}
+
+/* ================================================================== */
+/*  Start a new file                                                  */
+/* ================================================================== */
+$('btnStartNewFile').addEventListener('click', () => {
+  const p = $('newFilePath').value.trim();
+  if (!p) {
+    toast('Enter a file path first', 'err');
+    return;
+  }
+  state.editingFile = { path: p, sha: null };
+  showEditor(p, '', null, true);
+  $('newFilePath').value = '';
+});
+
+function showEditor(path, content, sha, isNew) {
+  $('editingPath').textContent = path;
+  $('content').value = content;
+  $('commitMsg').value = (isNew ? 'Add ' : 'Update ') + path.split('/').pop();
+
+  const badge = $('fileStatus');
+  if (isNew) {
+    badge.className = 'badge new';
+    badge.textContent = 'New file';
+  } else {
+    badge.className = 'badge edit';
+    badge.textContent = 'Editing · ' + (sha ? sha.slice(0, 7) : '');
+  }
+
+  const card = $('editorCard');
+  card.style.display = '';
+  card.classList.remove('success','error','show');
+  void card.offsetWidth;
+  card.classList.add('show');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+$('btnCancelEdit').addEventListener('click', () => {
+  const card = $('editorCard');
+  card.style.transition = 'opacity .25s ease, transform .25s ease';
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(12px)';
+  setTimeout(() => {
+    card.style.display = 'none';
+    card.style.opacity = '';
+    card.style.transform = '';
+    card.style.transition = '';
+  }, 250);
+  state.editingFile = null;
+  $('content').value = '';
+});
+
+/* ================================================================== */
+/*  Commit (create or update)                                         */
+/* ================================================================== */
+$('btnCommit').addEventListener('click', async () => {
+  if (!state.editingFile) {
+    toast('No file selected', 'err');
+    return;
+  }
+
+  const btn = $('btnCommit');
+  btn.disabled = true;
+
+  try {
+    const message = need($('commitMsg').value, 'Commit message');
+    const content = $('content').value;
+    const { owner, name, branch } = state.currentRepo;
+    const filePath = state.editingFile.path;
+
+    const payload = {
+      message,
+      content: b64EncodeUnicode(content),
+      branch
+    };
+    if (state.editingFile.sha) payload.sha = state.editingFile.sha;
+
+    const data = await api(
+      contentsUrl(owner, name, filePath, null),
+      { method: 'PUT', body: payload }
+    );
+
+    state.editingFile.sha = data.content.sha;
+    
+    toast('Committed successfully!', 'ok');
+
+    const parentDir = filePath.split('/').slice(0, -1).join('/');
+    await loadDir(parentDir);
+
+    const card = $('editorCard');
+    card.classList.remove('success');
+    void card.offsetWidth;
+    card.classList.add('success');
+
+    setTimeout(() => {
+      card.style.display = 'none';
+      state.editingFile = null;
+      $('content').value = '';
+      $('fileList').scrollTop = 0;
+    }, 400); 
+
+  } catch (e) {
+    if (e.status === 422 && !state.editingFile.sha) {
+      toast('File already exists — load it first', 'err');
+    } else if (e.status === 409) {
+      toast('Branch is empty or SHA is stale. Reload file.', 'err');
+    } else if (e.status === 404) {
+      toast('Check repo name / branch / token permissions', 'err');
+    } else {
+      toast('Commit failed: ' + e.message, 'err');
+    }
+
+    const card = $('editorCard');
+    card.classList.remove('error');
+    void card.offsetWidth;
+    card.classList.add('error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ================================================================== */
+/*  Upload Logic (Files & Folders)                                    */
+/* ================================================================== */
+const uploadInput = $('fileUploadInput');
+const folderInput = $('folderUploadInput');
+const uploadBtn = $('btnUpload');
+const uploadMenu = $('uploadMenu');
+const fileListBox = $('fileList');
+
+// Dropdown Menu Toggle
+uploadBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  uploadMenu.style.display = uploadMenu.style.display === 'block' ? 'none' : 'block';
+});
+
+document.addEventListener('click', () => {
+  uploadMenu.style.display = 'none';
+});
+
+// Menu Actions
+$('menuUploadFiles').addEventListener('click', () => {
+  uploadInput.click();
+});
+$('menuUploadFolder').addEventListener('click', () => {
+  folderInput.click();
+});
+
+// File Inputs Change Handlers
+uploadInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length) processUpload(files);
+  uploadInput.value = ''; 
+});
+
+folderInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length) processUpload(files);
+  folderInput.value = ''; 
+});
+
+// Drag & Drop Handlers
+fileListBox.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  fileListBox.classList.add('drag-over');
+});
+
+fileListBox.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  fileListBox.classList.remove('drag-over');
+});
+
+fileListBox.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  fileListBox.classList.remove('drag-over');
+
+  const items = e.dataTransfer.items;
+  if (!items) return;
+
+  const filesToUpload = [];
+
+  const traverseFileTree = (item, path = '') => {
+    return new Promise((resolve) => {
+      if (item.isFile) {
+        item.file((file) => {
+          file.relativePath = path + file.name;
+          filesToUpload.push(file);
+          resolve();
+        });
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        dirReader.readEntries(async (entries) => {
+          for (let i = 0; i < entries.length; i++) {
+            await traverseFileTree(entries[i], path + item.name + '/');
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  };
+
+  const promises = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i].webkitGetAsEntry();
+    if (item) promises.push(traverseFileTree(item));
+  }
+
+  await Promise.all(promises);
+
+  if (filesToUpload.length > 0) {
+    processUpload(filesToUpload);
+  }
+});
+
+// The actual upload process (shared for all methods)
+async function processUpload(files) {
+  const originalText = uploadBtn.innerHTML;
+  uploadBtn.disabled = true;
+  
+  let successCount = 0;
+  let failCount = 0;
+  const totalFiles = files.length;
+
+  try {
+    const { owner, name, branch } = state.currentRepo;
+
+    for (let i = 0; i < totalFiles; i++) {
+      const file = files[i];
+      uploadBtn.innerHTML = `⏳ ${i + 1}/${totalFiles}`;
+
+      // Read file to Base64
+      const base64Content = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Determine path (Drag drop uses relativePath, standard input uses webkitRelativePath or name)
+      const relPath = file.relativePath || file.webkitRelativePath || file.name;
+      const targetPath = state.currentPath 
+        ? `${state.currentPath}/${relPath}` 
+        : relPath;
+
+      // Check for existing SHA to overwrite safely
+      let sha = null;
+      try {
+        const existing = await api(contentsUrl(owner, name, targetPath, branch));
+        sha = existing.sha;
+      } catch (err) {
+        if (err.status !== 404) throw err;
+      }
+
+      const payload = {
+        message: `Upload ${file.name}`,
+        content: base64Content,
+        branch
+      };
+      if (sha) payload.sha = sha;
+
+      try {
+        await api(contentsUrl(owner, name, targetPath, null), {
+          method: 'PUT',
+          body: payload
+        });
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to upload ${targetPath}:`, err);
+      }
+    }
+
+    if (failCount === 0) {
+      toast(`Successfully uploaded all ${successCount} file(s)!`, 'ok');
+    } else {
+      toast(`Uploaded ${successCount} files, ${failCount} failed.`, 'err');
+    }
+    
+    // Refresh
+    await loadDir(state.currentPath);
+
+  } catch (err) {
+    toast('Upload failed: ' + err.message, 'err');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = originalText;
+  }
+}
+
+/* ================================================================== */
+/*  Create repository                                                 */
+/* ================================================================== */
+$('btnCreateRepo').addEventListener('click', async () => {
+  const btn = $('btnCreateRepo');
+  btn.disabled = true;
+  try {
+    const name = need($('repoName').value, 'Repository name');
+    const body = {
+      name,
+      description: $('repoDesc').value.trim(),
+      private: $('repoPrivate').checked,
+      auto_init: true
+    };
+
+    const data = await api('/user/repos', { method: 'POST', body });
+    toast('Repository created!', 'ok');
+
+    $('repoName').value = '';
+    $('repoDesc').value = '';
+    $('repoPrivate').checked = false;
+
+    await loadRepos();
+    switchTab('file');
+    await new Promise(r => setTimeout(r, 500));
+    await openRepo(data);
+  } catch (e) {
+    toast('Create failed: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ================================================================== */
+/*  Tabs                                                              */
+/* ================================================================== */
+document.querySelectorAll('.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('active')) return;
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = $('panel-' + btn.dataset.tab);
+    panel.classList.add('active');
+    panel.style.animation = 'none';
+    void panel.offsetWidth;
+    panel.style.animation = 'fadeInUp .4s ease';
+  });
+});
+</script>
+</body>
+</html>
