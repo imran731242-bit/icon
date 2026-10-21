@@ -4,7 +4,7 @@ Get **Free Fire item icons without watermark** by **Shah G Creator**.
 
 ---
 
-## 🚀 API Endpoint  
+## 🚀 API Endpoin  
 
 Use the following URL format to get icons:  
 `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/{item_ID}.png`  
